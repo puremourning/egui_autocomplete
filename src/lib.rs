@@ -174,7 +174,7 @@ where
     let text_edit_output = text_edit.show(ui);
     let completion_input = if multiple_words {
       if let Some(cursor_range) = text_edit_output.cursor_range {
-        let index = cursor_range.primary.ccursor.index;
+        let index = cursor_range.primary.index;
         // Get the word located at the current index
         let mut start = index;
         let mut end = index;
@@ -243,7 +243,7 @@ where
     if let (Some(index), true) = (
       state.selected_index,
       // If accepted by keyboard, close the popup. If the popup is closed with a selected index, take that text
-      accepted_by_keyboard || !ui.memory(|mem| mem.is_popup_open(id)),
+      accepted_by_keyboard || !egui::Popup::is_id_open(ui.ctx(), id),
     ) {
       let match_result = match_results[index].0.as_ref();
       if multiple_words {
@@ -267,12 +267,16 @@ where
       state.selected_index = None;
       text_response.mark_changed();
     }
-    egui::popup::popup_below_widget(
-      ui,
-      id,
-      &text_response,
-      PopupCloseBehavior::IgnoreClicks,
-      |ui| {
+
+    egui::Popup::from_response(&text_response)
+      .layout(egui::Layout::top_down_justified(egui::Align::LEFT))
+      .open_memory(None)
+      .close_behavior(PopupCloseBehavior::IgnoreClicks)
+      .id(id)
+      .align(egui::emath::RectAlign::BOTTOM_START)
+      .width(text_response.rect.width())
+      .show(|ui| {
+        ui.set_min_width(ui.available_width());
         for (i, (output, _, match_indices)) in
           match_results.iter().take(max_suggestions).enumerate()
         {
@@ -298,20 +302,15 @@ where
             state.selected_index = Some(i);
           }
         }
-      },
-    );
+      });
 
     if state.focused
       && (!text_field.as_str().is_empty() || popup_on_focus)
       && !match_results.is_empty()
     {
-      ui.memory_mut(|mem| mem.open_popup(id));
-    } else {
-      ui.memory_mut(|mem| {
-        if mem.is_popup_open(id) {
-          mem.close_popup()
-        }
-      });
+      egui::Popup::open_id(ui.ctx(), id);
+    } else if egui::Popup::is_id_open(ui.ctx(), id) {
+      egui::Popup::close_id(ui.ctx(), id);
     }
 
     state.store(ui.ctx(), id);
