@@ -53,63 +53,63 @@ treated
 "#;
 
 pub struct TemplateApp {
-    auto_complete1: AutoCompleteExample,
-    auto_complete2: AutoCompleteExample,
-    max_suggestions: usize,
-    highlight: bool,
-    multiple_words: bool,
-    popup_on_focus: bool,
+  auto_complete1:  AutoCompleteExample,
+  auto_complete2:  AutoCompleteExample,
+  max_suggestions: usize,
+  highlight:       bool,
+  multiple_words:  bool,
+  popup_on_focus:  bool,
 }
 
 struct AutoCompleteExample {
-    multi_input: String,
-    search_field: String,
+  multi_input:  String,
+  search_field: String,
 }
 
 impl AutoCompleteExample {
-    fn update(
-        &mut self,
-        _ctx: &egui::Context,
-        ui: &mut Ui,
-        max_suggestions: usize,
-        highlight_matches: bool,
-        multiple_words: bool,
-        popup_on_focus: bool,
-    ) {
-        let inputs = self.multi_input.lines().collect::<BTreeSet<_>>();
-        ui.add(
-            AutoCompleteTextEdit::new(&mut self.search_field, inputs)
-                .max_suggestions(max_suggestions)
-                .highlight_matches(highlight_matches)
-                .multiple_words(multiple_words)
-                .popup_on_focus(popup_on_focus),
-        );
-        ui.add(TextEdit::multiline(&mut self.multi_input));
-    }
+  fn update(
+    &mut self,
+    _ctx: &egui::Context,
+    ui: &mut Ui,
+    max_suggestions: usize,
+    highlight_matches: bool,
+    multiple_words: bool,
+    popup_on_focus: bool,
+  ) {
+    let inputs = self.multi_input.lines().collect::<BTreeSet<_>>();
+    ui.add(
+      AutoCompleteTextEdit::new(&mut self.search_field, inputs)
+        .max_suggestions(max_suggestions)
+        .highlight_matches(highlight_matches)
+        .multiple_words(multiple_words)
+        .popup_on_focus(popup_on_focus),
+    );
+    ui.add(TextEdit::multiline(&mut self.multi_input));
+  }
 }
 
 impl Default for TemplateApp {
-    fn default() -> Self {
-        Self {
-            auto_complete1: AutoCompleteExample {
-                multi_input: STARTER_LIST.to_string(),
-                search_field: Default::default(),
-            },
-            auto_complete2: AutoCompleteExample {
-                multi_input: Default::default(),
-                search_field: Default::default(),
-            },
-            max_suggestions: 10,
-            highlight: false,
-            multiple_words: false,
-            popup_on_focus: false,
-        }
+  fn default() -> Self {
+    Self {
+      auto_complete1:  AutoCompleteExample {
+        multi_input:  STARTER_LIST.to_string(),
+        search_field: Default::default(),
+      },
+      auto_complete2:  AutoCompleteExample {
+        multi_input:  Default::default(),
+        search_field: Default::default(),
+      },
+      max_suggestions: 10,
+      highlight:       false,
+      multiple_words:  false,
+      popup_on_focus:  false,
     }
+  }
 }
 
 impl eframe::App for TemplateApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+  fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.heading(format!("egui_autocomplete v{} demo", PARENT_TOML.package.version));
                 ui.label(
@@ -175,5 +175,5 @@ Use enter, tab or mouseclick to apply completion."#,
                 );
             });
         });
-    }
+  }
 }
