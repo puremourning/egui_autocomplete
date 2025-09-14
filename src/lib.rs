@@ -44,23 +44,26 @@ type SetTextEditProperties = dyn FnOnce(TextEdit) -> TextEdit;
 /// An extension to the [`egui::TextEdit`] that allows for a dropdown box with autocomplete to popup while typing.
 pub struct AutoCompleteTextEdit<'a, T> {
   /// Contents of text edit passed into [`egui::TextEdit`]
-  text_field:      &'a mut String,
+  text_field:              &'a mut String,
   /// Data to use as the search term
-  search:          T,
+  search:                  T,
   /// A limit that can be placed on the maximum number of autocomplete suggestions shown
-  max_suggestions: usize,
+  max_suggestions:         usize,
+  /// Limit the number of suggestions shown in the dropdown. If more are
+  /// available, show a scrollbar.
+  max_visible_suggestions: Option<usize>,
   /// If true, highlights the matching indices in the dropdown
-  highlight:       bool,
+  highlight:               bool,
   /// If true, provide completions when entering multiple space-delimited words
-  multiple_words:  bool,
+  multiple_words:          bool,
   /// Used to set properties on the internal TextEdit
-  set_properties:  Option<Box<SetTextEditProperties>>,
+  set_properties:          Option<Box<SetTextEditProperties>>,
   /// If set to true, the popup will show up when focused instead of waiting for a character to
   /// be typed
-  popup_on_focus:  bool,
+  popup_on_focus:          bool,
   /// Width of the autocomplete list
   /// Defaults to all available space
-  width:           f32,
+  width:                   Option<f32>,
 }
 
 impl<'a, T, S> AutoCompleteTextEdit<'a, T>
@@ -77,11 +80,12 @@ where
       text_field,
       search,
       max_suggestions: 10,
+      max_visible_suggestions: None,
       highlight: false,
       multiple_words: false,
       set_properties: None,
       popup_on_focus: false,
-      width: f32::INFINITY,
+      width: None,
     }
   }
 }
@@ -94,6 +98,13 @@ where
   /// This determines the number of options appear in the dropdown menu
   pub fn max_suggestions(mut self, max_suggestions: usize) -> Self {
     self.max_suggestions = max_suggestions;
+    self
+  }
+
+  /// Limit the number of suggestions shown in the dropdown. If more are
+  /// available, show a scrollbar. When None, all max_suggestions are shown
+  pub fn max_visible_suggestions(mut self, max_visible: Option<usize>) -> Self {
+    self.max_visible_suggestions = max_visible;
     self
   }
 
@@ -119,7 +130,7 @@ where
   /// This determines the width of the popup autocomplete list
   /// defaults to all available space
   pub fn width(mut self, width: f32) -> Self {
-    self.width = width;
+    self.width = Some(width);
     self
   }
 
@@ -156,6 +167,7 @@ where
       text_field,
       search,
       max_suggestions,
+      max_visible_suggestions,
       highlight,
       multiple_words,
       set_properties,
@@ -256,7 +268,8 @@ where
       .close_behavior(PopupCloseBehavior::IgnoreClicks)
       .id(id)
       .align(egui::RectAlign::BOTTOM_START)
-      .width(width)
+      .width(width.unwrap_or(text_response.rect.width()))
+      .align_alternatives(&[])
       .open(
         state.focused
           && (!text_field.is_empty() || popup_on_focus)
@@ -282,43 +295,61 @@ where
             .cursor
             .set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
           state.store(ui.ctx(), text_edit_id);
-          // Give focus back to the text edit.
-          text_response.request_focus();
         }
       } else {
         text_field.replace_with(match_result);
       }
+      // Give focus back to the text edit.
+      text_response.request_focus();
       state.selected_index = None;
       text_response.mark_changed();
     }
 
     // show the popup
     popup.show(|ui| {
-      for (i, (output, _, match_indices)) in
-        match_results.iter().take(max_suggestions).enumerate()
-      {
-        let mut selected = if let Some(x) = state.selected_index {
-          x == i
-        } else {
-          false
-        };
+      ui.set_width(ui.available_width());
+      let sa = egui::ScrollArea::vertical()
+        .auto_shrink([false, true])
+        .max_height(
+          max_visible_suggestions
+            .map(|x| x as f32 * ui.text_style_height(&egui::TextStyle::Body))
+            .unwrap_or(f32::INFINITY),
+        );
+      sa.show_rows(
+        ui,
+        ui.text_style_height(&egui::TextStyle::Body),
+        std::cmp::min(max_suggestions, match_results.len()),
+        |ui, row_range| {
+          let offset = row_range.start;
+          for (i, (output, _, match_indices)) in
+            match_results[row_range].iter().enumerate()
+          {
+            let i = i + offset;
+            let mut selected = if let Some(x) = state.selected_index {
+              x == i
+            } else {
+              false
+            };
 
-        let text = if highlight {
-          highlight_matches(
-            output.as_ref(),
-            match_indices,
-            ui.style().visuals.widgets.active.text_color(),
-          )
-        } else {
-          let mut job = LayoutJob::default();
-          job.append(output.as_ref(), 0.0, egui::TextFormat::default());
-          job
-        };
-        //  Update selected index based on hover
-        if ui.toggle_value(&mut selected, text).hovered() {
-          state.selected_index = Some(i);
-        }
-      }
+            let text = if highlight {
+              highlight_matches(
+                output.as_ref(),
+                match_indices,
+                ui.style().visuals.widgets.active.text_color(),
+              )
+            } else {
+              let mut job = LayoutJob::default();
+              job.append(output.as_ref(), 0.0, egui::TextFormat::default());
+              job
+            };
+            //  Update selected index based on hover
+            let tv = ui.toggle_value(&mut selected, text);
+            if tv.hovered() {
+              state.selected_index = Some(i);
+            }
+          }
+        },
+      );
     });
 
     state.store(ui.ctx(), id);
